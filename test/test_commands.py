@@ -6,7 +6,7 @@ import random
 from contextlib import redirect_stdout
 from .utils import *
 
-from queuebot import QueueBot, QueueConfig, DiscordUser
+from src.queuebot import QueueBot, QueueConfig, DiscordUser
 
 config = {
     "SECRET_TOKEN": "NOONEWILLEVERGUESSTHISSUPERSECRETSTRINGMWAHAHAHA",
@@ -28,8 +28,8 @@ class QueueTest(unittest.TestCase):
     def setUp(self):
         random.seed(SEED)
         self.config = config.copy()
-        self.bot = QueueBot(self.config, None, testing=True)
-        self.bot.logger = MockLogger()
+        self.bot = QueueBot(self.config, None)
+        self.bot._logger = MockLogger()
         self.bot.waiting_room = MockVoice("Waiting Room")
 
 
@@ -37,7 +37,7 @@ class QueueTest(unittest.TestCase):
         message = MockMessage("!q ping", get_rand_element(ALL_STUDENTS))
 
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual('SEND: Pong!\n', buf.getvalue())
 
     def test_simple_join(self):
@@ -47,13 +47,13 @@ class QueueTest(unittest.TestCase):
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q join", command_runner)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue), 1)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q join", command_runner)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue), 1)
 
@@ -63,19 +63,19 @@ class QueueTest(unittest.TestCase):
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q next", ta)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
             self.assertEqual("SEND: Queue is empty\n", buf.getvalue())
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q join", student)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue), 1)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q next", ta)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual(f"SEND: The next person is {student.get_mention()}\nRemaining people in the queue: 0\n",
                              buf.getvalue())
 
@@ -83,7 +83,7 @@ class QueueTest(unittest.TestCase):
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q next", ta)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
             self.assertEqual("SEND: Queue is empty\n", buf.getvalue())
 
@@ -94,31 +94,31 @@ class QueueTest(unittest.TestCase):
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q join", wumpus)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  1)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q join", quirky)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  2)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q join", wumpus)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  2)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q join", cyber)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  3)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q join", wumpus)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  3)
 
@@ -128,25 +128,25 @@ class QueueTest(unittest.TestCase):
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q", wumpus)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  0)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q joint", quirky)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  0)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q leave", cyber)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  0)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q leave", squid)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  0)
 
@@ -156,25 +156,25 @@ class QueueTest(unittest.TestCase):
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q leave", wumpus)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  0)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q join", cyber)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  1)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q leave", wumpus)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  1)
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q leave", cyber)
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue),  0)
 
@@ -202,7 +202,7 @@ class QueueTest(unittest.TestCase):
                     q.pop(index)
 
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
                 self.assertEqual(len(self.bot._queue), q_len)
 
     def test_clear(self):
@@ -215,13 +215,13 @@ class QueueTest(unittest.TestCase):
             for i in range(max_len):
                 message = MockMessage("!q join", students[i])
                 with io.StringIO() as buf, redirect_stdout(buf):
-                    run(self.bot.queue_command(message))
+                    run(self.bot._queue_command(message))
 
                 self.assertEqual(len(self.bot._queue), i+1)
 
             message = MockMessage("!q clear", russ)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
             self.assertEqual(len(self.bot._queue), 0)
 
@@ -230,20 +230,20 @@ class QueueTest(unittest.TestCase):
 
         with io.StringIO() as buf, redirect_stdout(buf):
             message = MockMessage("!q position", students[0])
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual(f"SEND: {students[0].get_mention()} you are not in the queue\n", buf.getvalue())
 
         random.shuffle(students)
         for user in students:
             message = MockMessage("!q join", user)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
         for i in range(len(students)):
             user = students[i]
             with io.StringIO() as buf, redirect_stdout(buf):
                 message = MockMessage("!q position", user)
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
                 self.assertEqual(f"SEND: {user.get_mention()} you are at position #{i+1}\n", buf.getvalue())
 
         self.assertEqual(len(students), len(self.bot._queue))
@@ -251,13 +251,13 @@ class QueueTest(unittest.TestCase):
         rand_user = get_rand_element(students)
         message = MockMessage("!q clear", rand_user)
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(students), len(self.bot._queue))
 
         message = MockMessage("!q clear", russ)
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue), 0)
 
@@ -271,7 +271,7 @@ class QueueTest(unittest.TestCase):
 
         message = MockMessage("!q list", get_rand_element(students))
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual("SEND: None embed.title='Queue List', embed.description=Total in queue: 0, fields=[EmbedProxy(inline=False, name='Next 10 people:', value='No one in queue')]\n",
                              buf.getvalue())
 
@@ -282,14 +282,14 @@ class QueueTest(unittest.TestCase):
             message = MockMessage("!q join", user)
             self.bot.waiting_room.members.append(user)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
             expected_value.append(f"**{i+1}.** {user.get_mention()}")
 
             with io.StringIO() as buf, redirect_stdout(buf):
                 rand_user = get_rand_element(students)
                 message = MockMessage("!q list", rand_user)
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
                 title, description, _, f_name, f_val= buf.getvalue().split(", ")
                 f_val = f_val[:-4]  # Get rid of ')]\n at end
@@ -318,13 +318,13 @@ class QueueTest(unittest.TestCase):
             else:
                 message = MockMessage("!q add " + user.get_mention(), russ, [user])
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
             if len(not_queued) > 0:
                 not_in = get_rand_element(not_queued)
                 message = MockMessage("!q remove " + not_in.get_mention(), russ, [not_in])
                 with io.StringIO() as buf, redirect_stdout(buf):
-                    run(self.bot.queue_command(message))
+                    run(self.bot._queue_command(message))
 
             self.assertEqual(user.id, self.bot._queue[-1].uuid)
             self.assertEqual(len(queued), len(self.bot._queue))
@@ -337,7 +337,7 @@ class QueueTest(unittest.TestCase):
             else:
                 message = MockMessage("!q leave", user)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
             self.assertEqual(len(queued), len(self.bot._queue))
 
@@ -355,7 +355,7 @@ class QueueTest(unittest.TestCase):
                 message = MockMessage("!q leave", user)
 
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
         self.assertEqual(0, len(self.bot._queue))
 
@@ -363,7 +363,7 @@ class QueueTest(unittest.TestCase):
             users_add = not_queued[i:i+random.randint(2,3)]
             message = MockMessage("!q add ", russ, users_add)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
             self.assertEqual(0, len(self.bot._queue))
 
@@ -371,7 +371,7 @@ class QueueTest(unittest.TestCase):
             rand_user = get_rand_element(not_queued)
             message = MockMessage("!q add ", user, [rand_user])
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
             self.assertEqual(0, len(self.bot._queue))
 
@@ -383,7 +383,7 @@ class QueueTest(unittest.TestCase):
             student = students[i]
             message = MockMessage("!q join", student)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
             self.assertEqual(i+1, len(self.bot._queue))
 
@@ -391,18 +391,18 @@ class QueueTest(unittest.TestCase):
         for s in students:
             message = MockMessage("!q peek", russ)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
                 self.assertEqual(f"SEND: Next in line: {s.get_mention()}\n", buf.getvalue())
 
             q_size -= 1
             message = MockMessage("!q next", russ)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
                 self.assertEqual(f"SEND: The next person is {s.get_mention()}\nRemaining people in the queue: {q_size}\n", buf.getvalue())
 
         message = MockMessage("!q peek", russ)
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual(f"SEND: Queue is empty\n", buf.getvalue())
 
     def test_count(self):
@@ -412,19 +412,19 @@ class QueueTest(unittest.TestCase):
         rand_student = get_rand_element(students)
         message = MockMessage("!q count", rand_student)
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual(f"SEND: {rand_student.get_mention()} there are 0 people in the queue\n", buf.getvalue())
 
         for i in range(len(students)):
             student = students[i]
             message = MockMessage("!q join", student)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
             rand_student = get_rand_element(students)
             message = MockMessage("!q count", rand_student)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
                 if i == 0:
                     self.assertEqual(f"SEND: {rand_student.get_mention()} there is 1 person in the queue\n", buf.getvalue())
                 else:
@@ -437,12 +437,12 @@ class QueueTest(unittest.TestCase):
 
         message = MockMessage("!q front " + rand_student.get_mention(), ta, [rand_student])
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual(len(self.bot._queue), 1)
 
         message = MockMessage("!q next", ta)
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual(f"SEND: The next person is {rand_student.get_mention()}\nRemaining people in the queue: 0\n",
                              buf.getvalue())
 
@@ -454,19 +454,19 @@ class QueueTest(unittest.TestCase):
         for student in next_students:
             message = MockMessage("!q join", student)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
         self.assertEqual(len(self.bot._queue), num_students)
 
         ta = get_rand_element(ALL_TAS)
         message = MockMessage("!q front " + front_student.get_mention(), ta, [front_student])
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual(len(self.bot._queue), num_students+1)
 
         q_len = num_students
         message = MockMessage("!q next", ta)
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertEqual(f"SEND: The next person is {front_student.get_mention()}\nRemaining people in the queue: {q_len}\n",
                             buf.getvalue())
 
@@ -474,7 +474,7 @@ class QueueTest(unittest.TestCase):
             q_len -= 1
             message = MockMessage("!q next", ta)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
                 self.assertEqual(f"SEND: The next person is {student.get_mention()}\nRemaining people in the queue: {q_len}\n",
                                  buf.getvalue())
 
@@ -489,7 +489,7 @@ class QueueTest(unittest.TestCase):
         for student in students:
             message = MockMessage("!q front " + student.get_mention(), ta, [student])
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue), num_students)
 
@@ -497,7 +497,7 @@ class QueueTest(unittest.TestCase):
         for student in students:
             message = MockMessage("!q next", ta)
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
                 self.assertTrue(buf.getvalue().startswith(f"SEND: The next person is {student.get_mention()}"))
 
         self.assertEqual(len(self.bot._queue), 0)
@@ -511,20 +511,20 @@ class QueueTest(unittest.TestCase):
         for student in students:
             message = MockMessage("!q add " + student.get_mention(), ta, [student])
             with io.StringIO() as buf, redirect_stdout(buf):
-                run(self.bot.queue_command(message))
+                run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue), num_students)
 
         student = students[-1]
         message = MockMessage("!q front " + student.get_mention(), ta, [student])
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
 
         self.assertEqual(len(self.bot._queue), num_students)
 
         message = MockMessage("!q next", ta)
         with io.StringIO() as buf, redirect_stdout(buf):
-            run(self.bot.queue_command(message))
+            run(self.bot._queue_command(message))
             self.assertTrue(buf.getvalue().startswith(f"SEND: The next person is {student.get_mention()}"))
 
         self.assertEqual(len(self.bot._queue), num_students-1)

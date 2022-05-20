@@ -1,0 +1,26 @@
+{
+    "SECRET_TOKEN": "",
+    "CHECK_VOICE_WAITING": true,
+    "ALERT_ON_FIRST_JOIN": true,
+
+    "TEXT_ROLE_MANAGEMENT": "",
+
+    "INSTRUCTOR_ROLES": [],
+    "CLASSES_CONFIG": {
+        "120": {
+            "TA_ROLES": [],
+            "VOICE_WAITING": "",
+            "VOICE_OFFICES": [],
+            "TEXT_ALERT": "",
+            "TEXT_LISTENS": []
+        },
+        "346": {
+            "TA_ROLES": [],
+            "VOICE_WAITING": "",
+            "VOICE_OFFICES": [],
+            "TEXT_ALERT": "",
+            "TEXT_LISTENS": []
+        }
+    }
+
+}
