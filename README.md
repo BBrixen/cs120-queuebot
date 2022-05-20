@@ -14,7 +14,7 @@ Here are some notes about things I wanted to do but didn't get around to finishi
 - The `py-cord` dependency should probably be updated (need to check for breaking changes)
 - `test/` contains unit test cases which are out of date and likely need to be redone
 - `README.md` should probably be split into multiple separate files and put into a `docs/` directory
-- The bot should be able to reply to a specific message instead of @ing the user in a new message (example can be found in [reply_to_msg.py]([reply_to_msg.py]))
+- The bot should be able to reply to a specific message instead of @ing the user in a new message (example can be found in [reply_to_msg.py](reply_to_msg.py))
 - The bot should notify a student if they are in the waiting room but not the queue (this should be run as a background task. See [background_tasks.py](background_tasks.py))
 
 ## Table of Contents
