@@ -622,7 +622,7 @@ class QueueBot(discord.Client):
         if q_user in self._queue:
             self._queue.remove(q_user)
             await self._send(channel, f"{q_user.get_name()} has been removed from the queue", CmdPrefix.SUCCESS)
-            await log_session(q_user.get_name(), self._join_times.get(q_user.get_uuid(), None), user.get_name(), "TA remove")
+            await log_session(q_user.get_name(), self._join_times.get(q_user.get_uuid(), None), user.get_name(), "remove")
             return True
         else:
             await self._send(channel, f"{q_user.get_name()} is not in the queue", CmdPrefix.WARNING)
