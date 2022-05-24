@@ -1,5 +1,8 @@
 import time
 import discord
+import asyncio
+import csv
+from datetime import datetime, date
 
 from enum import Enum
 
@@ -140,3 +143,32 @@ class DiscordUser():
             return self._uuid == other.id
 
         return other == self._uuid
+
+
+# log_session(user.get_mention(), self._join_times.get(user, None), None)
+async def log_session(name, join_time, ta, command_type):
+    lock = asyncio.Lock()
+
+    # time related data
+    current_time = datetime.now()
+    current_date = current_time.strftime("%B %d, %Y")
+    current_time = current_time.strftime("%H:%M")
+
+    if join_time is None:
+        join_time = "N/A"
+        diff = "N/A"
+    else:
+        # time spent waiting
+        join_time = join_time.strftime("%H:%M")
+        t1 = datetime.strptime(join_time, "%H:%M")
+        t2 = datetime.strptime(current_time, "%H:%M")
+        diff = t2 - t1
+        diff = str(diff)[:-3]
+
+    if ta is None:
+        ta = "N/A"
+
+    async with lock:
+        with open("logs/OH_logs.csv", 'a') as file:
+            writer = csv.writer(file, delimiter='|')
+            writer.writerow([name, current_date, join_time, ta, current_time, diff, command_type])
