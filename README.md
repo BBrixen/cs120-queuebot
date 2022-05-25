@@ -4,25 +4,39 @@
 
 QueueBot is an IRC-like bot for Discord. It is used to facilitate online Office Hours (hence the use of terms like "Instructor" and "TAs") by keeping track of students in a queue.
 
+## Notes and Stuff
+
+Source code for QueueBot is within the [src/](src/) directory.
+If you don't know where to run the bot, try running it on [Lectura](#running-the-bot-on-a-linux-machine-ie-lectura)
+
+Here are some notes about things I wanted to do but didn't get around to finishing it:
+
+- The `py-cord` dependency should probably be updated (need to check for breaking changes)
+- `test/` contains unit test cases which are out of date and likely need to be redone
+- `README.md` should probably be split into multiple separate files and put into a `docs/` directory
+- The bot should be able to reply to a specific message instead of @ing the user in a new message (example can be found in [reply_to_msg.py](reply_to_msg.py))
+- The bot should notify a student if they are in the waiting room but not the queue (this should be run as a background task. See [background_tasks.py](background_tasks.py))
+
 ## Table of Contents
 
 - [QueueBot](#queuebot)
+  - [Notes and Stuff](#notes-and-stuff)
   - [Table of Contents](#table-of-contents)
   - [QueueBot in Action](#queuebot-in-action)
-  - [Connecting Bot to Discord](#connecting-bot-to-discord)
-  - [Configuration](#configuration)
+  - [Creating Discord Bot](#creating-discord-bot)
+  - [Project Setup](#project-setup)
     - [Running with Command Line](#running-with-command-line)
-      - [Project Setup](#project-setup)
       - [Starting the Bot](#starting-the-bot)
     - [Running with Docker](#running-with-docker)
       - [Use Prebuilt Container](#use-prebuilt-container)
       - [Manually Build Container](#manually-build-container)
+  - [Configuration](#configuration)
     - [Modifying the Config](#modifying-the-config)
       - [Config Options](#config-options)
       - [Example Config](#example-config)
         - [JSON](#json)
-        - [Docker](#docker)
     - [Bot Commands](#bot-commands)
+    - [Running the Bot on a Linux Machine (ie. Lectura)](#running-the-bot-on-a-linux-machine-ie-lectura)
     - [Running Unit Tests](#running-unit-tests)
       - [Running All Unit Tests](#running-all-unit-tests)
       - [Running a Specific Unit Test File](#running-a-specific-unit-test-file)
@@ -33,52 +47,56 @@ QueueBot is an IRC-like bot for Discord. It is used to facilitate online Office 
 
 ![Preview of QueueBot in action](imgs/commandpreview.png)
 
-## Connecting Bot to Discord
+## Creating Discord Bot
 
 Before configuring the bot, it needs to be added to the appropriate discord server.
-
 1. Go to [Discord's developer portal](https://discord.com/developers/applications) and create a new application (top-right button).  
 ![Picture of the Developer Portal](imgs/connecting-1.jpg)
 2. Under the `General Information tab`, take a note of the Client ID as it will be used in step 5  
 ![](imgs/connecting-2.jpg)
-3. On the left panel, click `Add a Bot` to convert the application to a bot account  
+3. On the left panel, click the `Bot` category then the `Add a Bot` button to convert the application to a bot account  
 ![](imgs/connecting-3.jpg)
-4. Name it, give it profile picture, etc.
+4. Name it, give it a profile picture, etc.
      - Enable the "Server Members Intent" option under the "Privileged Gateway Intents"
          if you intend on enabling the config values [`CHECK_VOICE_WAITING`](#modifying-the-config) or [`ALERT_ON_FIRST_JOIN`](#modifying-the-config)
-5. Obtain your bot's Token by clicking the `Copy` button and save it for future reference (referred to as `SECRET_TOKEN` within the [configuration](#modifying-the-config) section).  
-**NOTE: the token is essentially your bot's password. Keep it secure and do not share it.**  
 ![](imgs/connecting-4.jpg)
-5. Open the following link and after changing the `client_id` parameter in the url with the Client ID you saved from step 2
+5. Obtain your bot's Token by clicking the `Copy` button and save it for future reference (referred to as `SECRET_TOKEN` within the [configuration](#modifying-the-config) section).  
+**NOTE: The token is effectively your bot's password. Keep it secure and do not share it.**  
+![](imgs/connecting-5.jpg)
+5. Open the following link in your preferred browser and after changing the `client_id` parameter in the url with the Client ID you saved from step 2
 ```bash
 # Swap out REPLACE_WITH_YOUR_CLIENT_ID with the correct Client ID from step 2
-https://discordapp.com/oauth2/authorize?&client_id=REPLACE_WITH_YOUR_CLIENT_ID&scope=bot&permissions=84032
+https://discord.com/api/oauth2/authorize?scope=bot&permissions=2147575872&client_id=REPLACE_WITH_YOUR_CLIENT_ID
+
+2416011344 -> Manage Roles, Manage Channels, Send Messages, Manage Messages, Embed Links, Read Message History, Add Reactions, Use Slash Commands
 ```
-6. Choose the server you want the bot to join and accept.
+> Permissions are the following: Permissoins: Send Messages, Manage Messages, Embed Links, Read Message History, Add Reactions, Use Slash Commands
+1. Choose the server you want the bot to join and accept.
 
 > NOTE: While it is possible to add the same bot account to multiple servers, it will only listen to the first server it joins
 
-## Configuration
+## Project Setup
 
 The bot can be run like a normal command line application or within a Docker container. Each method uses a different way to configure the bot.
 
 ### Running with Command Line
 
-#### Project Setup
+> Note: On Linux you may need to use `python3` if the `python` command runs Python 2
 
 0. Ensure you have Python 3.7+ installed
-1. Clone this repository
-2. `cd` into the repo folder
-3. Create a Python virtual environment
+1. Clone/Download this repository
+2. Extract and `cd` into the repo folder
+3. Create a Python virtual environment (skip if on lectura since it doesn't have the required package)
    - `py -3 -m venv venv`
-   - You may need to install `python3-venv` on Linux
+   - On Linux, You may need to install the `python3-venv` package for this to work
 4. Activate the virtual environment
    - Windows: `venv\Scripts\activate.bat`
    - Linux: `source venv/bin/activate`
-5. Upgrade pip
+   - Once activated, `python` and `pip` will point to the virtual environment executables
+5. Upgrade virtual environment pip
    - `python -m pip install --upgrade pip`
 6. Install queuebot required packages
-   - `pip install -r requirements-dev.txt`
+   - `pip install -r requirements-prod.txt`
 7. Generate `config.json` by running the bot for the first time
    - `python queuebot.py`
 8. Move on to [Modifying the Config](#modifying-the-config)
@@ -106,24 +124,24 @@ docker pull docker.pkg.github.com/benperumala/cs120-queuebot/queuebot:latest
    - `docker build -t queuebot:latest .`
 5. Move on to [Modifying the Config](#modifying-the-config)
 
+## Configuration
+
 ### Modifying the Config
 
-> **Docker Users:** When passing config values as environmental variables, each variable must start with the prefix `QUEUE_`. As a result, if you want to pass in your `SECRET_TOKEN` you would use the environment variable `QUEUE_SECRET_TOKEN`  
->  
-> Lists, unlike the json config, is specified by having a comma-separated string
+> **Docker Users:** The container uses the same `config.json` file as the regular bot. However, it must be mounted within the `/data` directory. This can be done via the `-v` flag when doing `docker run`.
 
 #### Config Options
 
 | Name                  | Type | Description  |
 |-----------------------|------|--------------|
-| SECRET_TOKEN          | String | Discord Token which the bot uses for authentication (see [Connecting bot to Discord](#connecting-bot-to-discord) on how to get it). |
-| TA_ROLES              | List of Strings | A list of discord roles which signify TAs/Instructors. Users with any of these roles can run TA commands. |
-| LISTEN_CHANNELS       | List of Strings | A list of text channels which the bot will listen in for queries. |
+| SECRET_TOKEN          | String | Discord Token which the bot uses for authentication (see [Creating Discord Bot](#creating-discord-bot) on how to get it). |
+| TA_ROLES              | List | A list of discord roles which signify TAs/Instructors. Users with any of these roles can run TA commands. |
+| LISTEN_CHANNELS       | List | A list of text channels which the bot will listen in for queries. |
 | CHECK_VOICE_WAITING   | Boolean | When enabled, the bot will only allow people to join the queue when they have joined a voice channel (specified with `VOICE_WAITING` option). |
 | VOICE_WAITING         | String | Specifies which voice channel students will join while they wait for a TA to become available. Does not need to be populated if `CHECK_VOICE_WAITING` is False. |
 | ALERT_ON_FIRST_JOIN   | Boolean | Alert available TAs when somone first joins the queue (Only TAs with 0 students in the same room will be notified)  |
 | ALERTS_CHANNEL        | String | Text channel the bot will send alerts in. Currently, `ALERT_ON_FIRST_JOIN` is the only item to create alerts.  |
-| VOICE_OFFICES         | List of Strings | Specifies the channels to search for available TAs. TAs in rooms without any students will be notified if someone enters the queue. Does not need to be specified when `ALERT_ON_FIRST_JOIN` is False. |
+| VOICE_OFFICES         | List | Specifies the channels to search for available TAs. TAs in rooms without any students will be notified if someone enters the queue. Does not need to be specified when `ALERT_ON_FIRST_JOIN` is False. |
 
 #### Example Config
 
@@ -145,19 +163,6 @@ Since `ALERT_ON_FIRST_JOIN` is enabled, the bot will check voice rooms `Office H
     "VOICE_OFFICES": ["Office Hours Room 1", "Office Hours Room 2"]
 }
 ```
-
-##### Docker
-
-| Environment Variable      | Value                                   |
-|---------------------------|-----------------------------------------|
-| QUEUE_SECRET_TOKEN        | [YOUR SECRET TOKEN HERE]                |
-| QUEUE_TA_ROLES            | UGTA                                    |
-| QUEUE_LISTEN_CHANNELS     | join-queue                              |
-| QUEUE_CHECK_VOICE_WAITING | True                                    |
-| QUEUE_VOICE_WAITING       | waiting-room                            |
-| QUEUE_ALERT_ON_FIRST_JOIN | True                                    |
-| QUEUE_ALERTS_CHANNEL      | queue-alerts                            |
-| QUEUE_VOICE_OFFICES       | Office Hours Room 1,Office Hours Room 2 |
 
 ### Bot Commands
 
@@ -181,6 +186,22 @@ The bot has two permission levels: `Everyone` and `TA`. Commands with the `Every
 | `!q remove @user`  | TA       | Removes `@user` from the queue (the TA must mention said user) |
 
 
+### Running the Bot on a Linux Machine (ie. Lectura)
+
+Assuming the code is already on the system, the `screen` command can be used to create a lasting terminal session.
+1. Create a new "screen" which will run the bot
+```bash
+# Create a new screen
+screen -S QueueBot
+cd <path/to/queuebot/code>
+# Run the bot
+python3 queuebot.py
+```
+
+To "detach" from the screen, press `Ctrl-A-D`. This will keep the process running in the background.  
+To reattach to the screen run `screen -r QueueBot`. A list of all created screens can be shown by running `screen -list`
+
+> NOTE: Lectura may kill long lasting processes (I haven't looked into it much). If this is the case, an Amazon AWS EC2 instance can be used. Upon creating an AWS account, you get 1 year free for the `t2.micro` machine. Contact me (Ben P) or Russ for more info.
 
 ### Running Unit Tests
 
@@ -196,7 +217,7 @@ python -m unittest
 
 #### Running a Specific Unit Test File
 
-Simply specify the file after invoking the unittest library
+Replace `TEST_FILE` with the respective file
 
 ```bash
 python -m unittest test/TEST_FILE.py
@@ -204,7 +225,7 @@ python -m unittest test/TEST_FILE.py
 
 #### Running Specific Unit Test Method
 
-The method must be specified as follows:
+Replace `TEST_FILE` and `METHOD_NAME` with the respective file and method
 
 ```bash
 python -m unittest test.TEST_FILE.QueueTest.METHOD_NAME
@@ -221,4 +242,4 @@ coverage run --omit 'venv/*' -m unittest
 coverage xml -o cov.xml
 ```
 
-`cov.xml` should now contain coverage information. `coverage.exe html` can be run afterwards to get a HTML report of the coverage (files are generated in the `htmlcov/` folder)
+`cov.xml` should now contain coverage information. `coverage html` can be run afterwards to get a HTML report of the coverage (files are generated in the `htmlcov/` folder)

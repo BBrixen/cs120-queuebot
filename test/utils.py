@@ -63,6 +63,9 @@ class MockAuthor:
         self.mention = self.get_mention()
         self.roles = [MockRole(r) for r in roles]
 
+    def get_uuid(self):
+        return self.id
+
     def get_mention(self):
         return f"<@{self.id}>"
 
@@ -76,11 +79,19 @@ class MockAuthor:
         return f"MockAuthor('{self.name}')"
 
 
+class MockChannel:
+    def __init__(self, name):
+        self.name = name
+
+class MockDMChannel:
+    def __init__(self):
+        pass
+
 class MockMessage:
-    def __init__(self, content, author, mentions=None):
+    def __init__(self, content, author, channel, mentions=None):
         self.content = content
         self.author = author
-        self.channel = None
+        self.channel = channel
         self.mentions = mentions if mentions is not None else []
 
 class MockVoice:

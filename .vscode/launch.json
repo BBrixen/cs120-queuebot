@@ -14,7 +14,8 @@
             "name": "Python: QueueBot",
             "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}\\queuebot.py",
+            "program": "${workspaceFolder}\\src\\queuebot.py",
+            "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         }
     ]
