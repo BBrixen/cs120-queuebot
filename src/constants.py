@@ -23,5 +23,3 @@ NOTE: TAs can also run student commands""",
 
 MSG_QUEUE_CLEAR = """Are you sure you want to clear the queue?
 React with ✅ to confirm or ❌ to cancel"""
-
-LOG_PATH = "/logs/OH_logs"
