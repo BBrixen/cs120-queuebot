@@ -212,4 +212,4 @@ cython_debug/
 # Project specific
 logs
 *.bak*
-config.json
+src/config.json

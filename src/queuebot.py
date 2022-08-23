@@ -25,7 +25,6 @@ import logging.handlers
 import asyncio
 import discord  # This is defined by py-cord (referenced as discord.py in codebase)
 from datetime import datetime
-
 import constants
 
 from collections import deque
@@ -38,6 +37,7 @@ from utils import CmdPrefix, DiscordUser, log_session
 # TODO Save Queue State in the case of a restart?
 # TODO Make all commands private
 # QueueBot extends the discord.Client class
+
 class QueueBot(discord.Client):
     """
     Instantiate the QueueBot that connects to a Discord server to manage a single queue
@@ -68,9 +68,8 @@ class QueueBot(discord.Client):
         self._is_initialized = False
         self._config = config
         self._logger = logger
-        self._queue = deque()  # Doubly-ended queue
         self._join_times = {}
-
+        self._queues = {}  # guild -> doubly linked list
 
     async def on_ready(self):
         """
@@ -97,11 +96,6 @@ class QueueBot(discord.Client):
         if self._config.CHECK_VOICE_WAITING:
             self._waiting_room = self._get_channel_from_name(self._config.VOICE_WAITING, guild.voice_channels).pop()
 
-        if self._config.ALERT_ON_FIRST_JOIN:
-            self._voice_offices = self._get_channel_from_name(self._config.VOICE_OFFICES, guild.voice_channels)
-            self._alerts_channel = self._get_channel_from_name(self._config.TEXT_ALERT, guild.text_channels).pop()
-
-        # await self.update_presence()
         await self.change_presence(activity=discord.Game(name="Type '!q help' for all commands"))
         self._is_initialized = True
         self._logger.info(f"Found all voice and text channels. Ready to process requests.")
@@ -152,7 +146,7 @@ class QueueBot(discord.Client):
                 update = await self._queue_command(message)
 
                 if update:
-                    await self._log_queue_state()
+                    await self._log_queue_state(message.channel)
             except discord.errors.Forbidden:
                     await self._send(message.channel, "Unable to send message! User and/or channel privacy settings likely preventing the message from being received", message_type=CmdPrefix.ERROR)
             except Exception as e:
@@ -160,7 +154,7 @@ class QueueBot(discord.Client):
                 await self._send(message.channel, "An error has occurred.", CmdPrefix.ERROR)
                 raise e
 
-    async def _log_queue_state(self):
+    async def _log_queue_state(self, channel):
         """
         Update the bot's profile activity to show how many people
         are in the queue
@@ -168,14 +162,17 @@ class QueueBot(discord.Client):
         Returns: None
         """
         retval = []
-        for user in self._queue:
+        queue = self.get_queue(channel)
+        for user in queue:
             state = "in-person" if user.is_inperson() else "online"
             retval.append(f"{user} (state='{state}' join={user.get_join_time()})")
 
         self._logger.info("\tQueue state: " + ", ".join(retval))
 
-    def _in_voice_channel(self, user: DiscordUser, voice_channel):
-        return any(member.id == user.get_uuid() for member in voice_channel.members)
+    def get_queue(self, channel):
+        if channel.guild not in self._queues:
+            self._queues[channel.guild] = deque()
+        return self._queues[channel.guild]
 
     # TODO Use message.reply instead of message.send()? Double check parameters
     async def _send(self, channel, content=None, message_type=None, *, embed=None, allowed_mentions=None):
@@ -281,7 +278,6 @@ class QueueBot(discord.Client):
         else:
             # TODO Don't put author in error message (bad practice? Double check)
             raise ValueError(f"{type(author)} is an unknown author type")
-
 
         if len(full_command) < 2 or len(full_command) > 3:
             # TODO Combine this and other invalid format/syntax commands into single constant
@@ -395,7 +391,7 @@ class QueueBot(discord.Client):
         await self._send(channel, f"{user.get_mention()} a list of the commands has been sent to your Direct Messages", CmdPrefix.SUCCESS)
         return False
 
-    async def _alert_avail_tas(self):
+    async def _alert_avail_tas(self, channel):
         """
         Notify available TAs when someone joins the queue
         (where an available TA is a TA who is in an office hours
@@ -410,7 +406,8 @@ class QueueBot(discord.Client):
 
         actives = []
 
-        for room in self._voice_offices:
+        voice_offices = self._get_channel_from_name(self._config.VOICE_OFFICES, channel.guild.voice_channels)
+        for room in voice_offices:
             # All members in the channel are TAs
             if all(self._is_ta(user.roles, self._config.TA_ROLES) for user in room.members):
                 actives.extend(room.members)
@@ -421,7 +418,7 @@ class QueueBot(discord.Client):
 
         self._logger.debug(f"\t> Active TAs: {actives}")
         message = " ".join([ta.mention for ta in actives]) + " The queue is no longer empty"
-        await self._send(self._alerts_channel, message)
+        await self._send(channel, message)
         return len(actives)
 
     async def _q_join(self, user, channel):
@@ -437,14 +434,16 @@ class QueueBot(discord.Client):
         Returns: True if the user is added to the queue
         """
         # TODO Use function for checking if user in waiting room
-        if self._config.CHECK_VOICE_WAITING and not self._in_voice_channel(user, self._waiting_room):
+        if self._config.CHECK_VOICE_WAITING and not in_voice_channel(user, channel, self._waiting_room.name):
             # await self.send(channel, f"{user.get_mention()} Please join the __{self._waiting_room.name}__ voice channel then __run `!q join` again__\n(if you are in Gould-Simpson waiting for office hours use `!q join-inperson` instead)", CmdPrefix.WARNING)
             await self._send(channel, f"{user.get_mention()} Please join the __{self._waiting_room.name}__ voice channel then __run `!q join` again__", CmdPrefix.WARNING)
             return False
 
-        if user in self._queue:
-            index = self._queue.index(user)
-            q_user = self._queue[index]
+        queue = self.get_queue(channel)
+
+        if user in queue:
+            index = queue.index(user)
+            q_user = queue[index]
             if not q_user.is_inperson():
                 await self._send(channel, f"{user.get_mention()} you are already in the queue at position #{index+1}", CmdPrefix.WARNING)
             else:
@@ -452,12 +451,12 @@ class QueueBot(discord.Client):
                 await self._send(channel, f"{user.get_mention()} status changed to *online* (position in queue: {index+1})", CmdPrefix.SUCCESS)
             return False
 
-        self._queue.append(user)
+        queue.append(user)
         self._join_times[user.get_uuid()] = datetime.now()
 
-        if len(self._queue) == 1:
-            await self._alert_avail_tas()
-        await self._send(channel, f"""{user.get_mention()} you have been added at position #{len(self._queue)} *(online)*\n*Please stay in the voice channel while you wait*""", CmdPrefix.SUCCESS)
+        if len(queue) == 1:
+            await self._alert_avail_tas(channel)
+        await self._send(channel, f"""{user.get_mention()} you have been added at position #{len(queue)} *(online)*\n*Please stay in the voice channel while you wait*""", CmdPrefix.SUCCESS)
         return True
 
     async def _q_join_inperson(self, user, channel):
@@ -472,9 +471,12 @@ class QueueBot(discord.Client):
 
         Returns: True if the user is added to the queue
         """
-        if user in self._queue:
-            index = self._queue.index(user)
-            q_user = self._queue[index]
+
+        queue = self.get_queue(channel)
+
+        if user in queue:
+            index = queue.index(user)
+            q_user = queue[index]
             if q_user.is_inperson():
                 await self._send(channel, f"{user.get_mention()} you are already in the queue at position #{index+1}", CmdPrefix.WARNING)
             else:
@@ -483,13 +485,13 @@ class QueueBot(discord.Client):
             return False
 
         user.set_inperson(True)
-        self._queue.append(user)
+        queue.append(user)
         self._join_times[user.get_uuid()] = datetime.now()
 
-        self._logger.debug("Queue length after adding user = " + str(len(self._queue)))
-        if len(self._queue) == 1:
-            await self._alert_avail_tas()
-        await self._send(channel, f"""{user.get_mention()} you have been added at position #{len(self._queue)} *(in-person)*""", CmdPrefix.SUCCESS)
+        self._logger.debug("Queue length after adding user = " + str(len(queue)))
+        if len(queue) == 1:
+            await self._alert_avail_tas(channel)
+        await self._send(channel, f"""{user.get_mention()} you have been added at position #{len(queue)} *(in-person)*""", CmdPrefix.SUCCESS)
         return True
 
     async def _q_leave(self, user, channel):
@@ -503,10 +505,13 @@ class QueueBot(discord.Client):
 
         Returns: True if the user is removed from the queue
         """
-        if user in self._queue:
-            self._queue.remove(user)
+
+        queue = self.get_queue(channel)
+
+        if user in queue:
+            queue.remove(user)
             await self._send(channel, f"{user.get_mention()} you have been removed from the queue", CmdPrefix.SUCCESS)
-            await log_session(user.get_name(), self._join_times.get(user.get_uuid(), None), None, "leave")
+            await log_session(user.get_name(), self._join_times.get(user.get_uuid(), None), None, "leave", channel.guild.name)
             return True
         else:
             await self._send(channel, f"{user.get_mention()} you can not be removed from the queue because you never joined it", CmdPrefix.WARNING)
@@ -523,8 +528,11 @@ class QueueBot(discord.Client):
 
         Returns: False (doesn't update queue)
         """
-        if user in self._queue:
-            index = self._queue.index(user) + 1
+
+        queue = self.get_queue(channel)
+
+        if user in queue:
+            index = queue.index(user) + 1
             await self._send(channel, f"{user.get_mention()} you are at position #{index}")
         else:
             await self._send(channel, f"{user.get_mention()} you are not in the queue")
@@ -542,23 +550,48 @@ class QueueBot(discord.Client):
 
         Returns: True if a user is removed
         """
+        queue = self.get_queue(channel)
 
-        if len(self._queue) == 0:
+        if len(queue) == 0:
             await self._send(channel, "Queue is empty")
             return False
 
-        q_next = self._queue.popleft()
-        await log_session(q_next.get_name(), self._join_times.get(q_next.get_uuid(), None), user.get_name(), "next")
+        q_next = queue.popleft()
+        await log_session(q_next.get_name(), self._join_times.get(q_next.get_uuid(), None), user.get_name(), "next", channel.guild.name)
 
         # TODO Verify debug message is useful and easy to parse
         self._logger.debug(f"\t> Removing {q_next} from the queue. Total wait time was {q_next.get_wait_time()}")
         user_status = ""
-        if q_next.is_inperson():
+
+        inperson = q_next.is_inperson()
+        incall = in_voice_channel(q_next, channel, self._waiting_room.name)
+        if inperson:
             user_status = "__*(in person)*__"
         elif self._config.CHECK_VOICE_WAITING:
             # TODO Use custom function for checking if user is in waiting room
-            user_status = " (online and in voice)" if self._in_voice_channel(q_next, self._waiting_room) else " (online and **not** in voice)"
-        await self._send(channel, f"""The next person is {q_next.get_mention()}{user_status}\nRemaining people in the queue: {len(self._queue)}""")
+            user_status = " (online and in voice)" if incall else " (online and **not** in voice)"
+        await self._send(channel, f"""The next person is {q_next.get_mention()}{user_status}\nRemaining people in the queue: {len(queue)}""")
+
+        if not inperson:
+            if not incall:
+                await self._send(channel, f"""Cannot automatically move student because they are not in voice""")
+                return True
+
+            # move them into the new vc
+            user_to_move = channel.guild.get_member(q_next.get_uuid())
+            ta_member = channel.guild.get_member(user.get_uuid())
+
+            # check if TA is in vc
+            if ta_member.voice is None:
+                await self._send(channel, f"""Cannot automatically move student because {ta_member.mention} is not in voice.""")
+                return True
+
+            voice_channel = ta_member.voice.channel
+            if voice_channel is None:
+                return True
+
+            await user_to_move.move_to(voice_channel)
+
         return True
 
     async def _q_add_other(self, user, mentions, channel, in_person=False):
@@ -584,16 +617,17 @@ class QueueBot(discord.Client):
         author = mentions[0]
         q_user = DiscordUser(author.id, author.name, author.discriminator, author.nick)
         q_user.set_inperson(in_person)
+        queue = self.get_queue(channel)
 
-        if q_user in self._queue:
-            index = self._queue.index(q_user)
+        if q_user in queue:
+            index = queue.index(q_user)
             await self._send(channel, f"{user.get_mention()} That person is already in the queue at position #{index}", CmdPrefix.WARNING)
             return False
         else:
-            self._queue.append(q_user)
+            queue.append(q_user)
             self._join_times[q_user.get_uuid()] = datetime.now()
 
-            await self._send(channel, f"{user.get_mention()} the person has been added at position #{len(self._queue)}", CmdPrefix.SUCCESS)
+            await self._send(channel, f"{user.get_mention()} the person has been added at position #{len(queue)}", CmdPrefix.SUCCESS)
             return True
 
     async def _q_remove_other(self, user, mentions, channel):
@@ -617,12 +651,13 @@ class QueueBot(discord.Client):
 
         author = mentions[0]
         q_user = DiscordUser(author.id, author.name, author.discriminator, author.nick)
+        queue = self.get_queue(channel)
         # TODO Test removing a user from the beginning of the queue
 
-        if q_user in self._queue:
-            self._queue.remove(q_user)
+        if q_user in queue:
+            queue.remove(q_user)
             await self._send(channel, f"{q_user.get_name()} has been removed from the queue", CmdPrefix.SUCCESS)
-            await log_session(q_user.get_name(), self._join_times.get(q_user.get_uuid(), None), user.get_name(), "remove")
+            await log_session(q_user.get_name(), self._join_times.get(q_user.get_uuid(), None), user.get_name(), "remove", channel.guild.name)
             return True
         else:
             await self._send(channel, f"{q_user.get_name()} is not in the queue", CmdPrefix.WARNING)
@@ -648,10 +683,11 @@ class QueueBot(discord.Client):
         else:
             author = mentions[0]
             q_user = DiscordUser(author.id, author.name, author.discriminator, author.nick)
+            queue = self.get_queue(channel)
 
-            if q_user in self._queue:
-                self._queue.remove(q_user)
-            self._queue.appendleft(q_user)
+            if q_user in queue:
+                queue.remove(q_user)
+            queue.appendleft(q_user)
             # in this situation we do not want to change the join_time since they were already in the queue
 
             await self._send(channel, f"{q_user.get_name()} has been moved to the front of the queue", CmdPrefix.SUCCESS)
@@ -672,17 +708,18 @@ class QueueBot(discord.Client):
         """
         # List the next 10 people within the queue in a nice formatted box (embed)
         user_list = []
-        queue_length = len(self._queue)
+        queue = self.get_queue(channel)
+        queue_length = len(queue)
 
         # Get list of first 10 people in queue
         for i in range(0, min(10, queue_length)):
-            user: DiscordUser = self._queue[i]
+            user: DiscordUser = queue[i]
             user_metadata = ""
             if user.is_inperson():
                 user_metadata = " *__(in person)__*"
             elif self._config.CHECK_VOICE_WAITING:
                 #                Bold *
-                user_metadata = " ** * **" if not self._in_voice_channel(user, self._waiting_room) else ""
+                user_metadata = " ** * **" if not in_voice_channel(user, channel, self._waiting_room.name) else ""
 
             user_list.append(f"**{i+1}.** {user.get_mention()}{user_metadata}")
 
@@ -726,13 +763,15 @@ class QueueBot(discord.Client):
 
             raise asyncio.TimeoutError()
 
-        if len(self._queue) == 0:
+        queue = self.get_queue(channel)
+
+        if len(queue) == 0:
             await self._send(channel, "Queue is already empty")
             return False
 
         if self._testing:
             print("In testing mode; Skipping confirmation message")
-            self._queue.clear()
+            queue.clear()
             return True
 
         # TODO Convert message to constant
@@ -748,24 +787,35 @@ class QueueBot(discord.Client):
         else:
             self._logger.info(f"Emptying queue as per {user}'s request...")
             self._logger.debug("Queue prior to clearing: " +
-                              ", ".join(str(el) for el in self._queue))
+                              ", ".join(str(el) for el in queue))
 
-            for q_user in self._queue:
-                await log_session(q_user.get_name(), self._join_times[q_user.get_uuid()], user.display_name, "clear")
+            for q_user in queue:
+                await log_session(q_user.get_name(), self._join_times[q_user.get_uuid()], user.display_name, "clear", channel.guild.name)
                 self._join_times[q_user.get_uuid()] = None
 
-            self._queue.clear()
+            queue.clear()
 
             await message.edit(content="Queue has been emptied")
             return True
 
     async def _q_logs(self, user, channel):
         discord_user = self.get_user(user.get_uuid())
-        self._logger.info("\t> Sent logs to", user.get_name())
+        self._logger.info("\t> Sent logs to " + user.get_name())
 
-        await self._send_dm(discord_user, None, log_message=False, file="logs/OH_logs.csv")
+        await self._send_dm(discord_user, None, log_message=False, file=f"logs/OH_logs_{channel.guild.name}.csv")
         await self._send(channel, f"{user.get_mention()} QueueBot logs have been to your Direct Messages", CmdPrefix.SUCCESS)
         return False
+
+
+def get_user(channel, uuid):
+    return channel.guild.get_member(uuid)
+
+
+def in_voice_channel(user: DiscordUser, message_channel, channel_name):
+    voice = get_user(message_channel, user.get_uuid()).voice
+    if voice is None:
+        return False
+    return voice.channel.name == channel_name
 
 
 def setup_loggers():

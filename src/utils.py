@@ -41,7 +41,6 @@ class DiscordUser():
     def get_uuid(self):
         """
         Get the UUID of the user
-
         Returns: A string containing the user's UUID
         """
         return self._uuid
@@ -146,7 +145,7 @@ class DiscordUser():
 
 
 # log_session(user.get_mention(), self._join_times.get(user, None), None)
-async def log_session(name, join_time, ta, command_type):
+async def log_session(name, join_time, ta, command_type, server_name):
     lock = asyncio.Lock()
 
     # time related data
@@ -169,6 +168,6 @@ async def log_session(name, join_time, ta, command_type):
         ta = "N/A"
 
     async with lock:
-        with open("logs/OH_logs.csv", 'a') as file:
+        with open(f"logs/OH_logs_{server_name}.csv", 'a') as file:
             writer = csv.writer(file, delimiter='|')
             writer.writerow([name, current_date, join_time, ta, current_time, diff, command_type])

@@ -17,9 +17,11 @@ MSG_HELP = {
 > `!q add-inperson @user` - add @user to the end of the queue and marks them as in-person (you must @mention the person)
 > `!q remove @user` - remove @user from the queue (you must @mention the person)
 > `!q front @user` - adds/moves @user to the front of the queue (you must @mention the person)
-> '!q logs` - Get logs of office hours as a file in DMs
+> `!q logs` - Get logs of office hours as a file in DMs
 NOTE: TAs can also run student commands""",
 }
 
 MSG_QUEUE_CLEAR = """Are you sure you want to clear the queue?
 React with ✅ to confirm or ❌ to cancel"""
+
+LOG_PATH = "/logs/OH_logs"
